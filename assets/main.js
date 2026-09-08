@@ -784,3 +784,271 @@
 
 /* === licznik otwarć demo (buy-signal) + geo === */
 (function(){try{if(String(location.protocol).indexOf('http')!==0)return;try{if(/[?&#]team=1/.test(location.search+location.hash)){localStorage.setItem('nb_team','1');}}catch(e){}try{if(localStorage.getItem('nb_team')==='1')return;}catch(e){}if((document.referrer||'').indexOf('crm-newbeginning')>-1)return;try{if(navigator.webdriver)return;}catch(e){}try{if(/^https?:\/\/(kris20032|impulseo-pl)\.github\.io\/?$/i.test(document.referrer||''))return;}catch(e){}if(sessionStorage.getItem('_dv'))return;sessionStorage.setItem('_dv','1');var seg=(location.pathname.split('/').filter(Boolean)[0])||'';var base=location.origin+(seg?('/'+seg):'');var ua='';try{ua=(navigator.userAgent||'').slice(0,300);}catch(e){}var EP='https://zngfubfinbojfgaxdrbf.supabase.co/rest/v1/demo_views';var KEY='sb_publishable_MWwoyGlSCWnJ4awtOPF0ow_ZVS0Y8qK';function send(g){try{fetch(EP,{method:'POST',keepalive:true,headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY,'Prefer':'return=minimal'},body:JSON.stringify({demo_url:base,page:location.pathname,referrer:(document.referrer||null),user_agent:(ua||null),ip:(g&&g.ip)||null,country:(g&&g.cc)||null,city:(g&&g.city)||null})}).catch(function(){});}catch(e){}}var done=false;function once(g){if(done)return;done=true;send(g);}try{var t=setTimeout(function(){once(null);},1500);fetch('https://ipwho.is/?fields=ip,success,country_code,city',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){clearTimeout(t);once(d&&d.success!==false?{ip:d.ip,cc:d.country_code,city:d.city}:null);}).catch(function(){clearTimeout(t);once(null);});}catch(e){once(null);}}catch(e){}})();
+
+
+/* ============================================================
+   ELEKTRO — iskry i przepływ prądu (08.09.2026, prośba Szymona)
+   Trzy niezależne bajery, każdy w osobnym try/catch:
+     1) ISKRY  — świecące drobinki + łuki elektryczne w nagłówku
+     2) TOR PRĄDU — pakiet światła biegnący szyną na styku sekcji
+     3) SZYNA POSTĘPU — pasek napięcia u góry okna
+
+   ZASADY BEZPIECZEŃSTWA (te same co warstwa ruchu silnika):
+   • błąd któregokolwiek bloku NIE może wywrócić strony — stąd `blok()`;
+   • bez JS / przy błędzie strona wygląda jak przed tą warstwą (żaden
+     efekt nie ukrywa treści — wszystkie tylko DOKŁADAJĄ ozdobnik);
+   • prefers-reduced-motion wyłącza wszystko;
+   • nic nie mieli poza ekranem: rysowanie stoi, gdy nagłówek wyjechał
+     z widoku albo karta jest w tle (IntersectionObserver + visibilitychange).
+   ============================================================ */
+(function () {
+  var reduce = false;
+  try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+  function blok(nazwa, fn) {
+    try { fn(); } catch (e) {
+      if (window.console && console.warn) console.warn('[elektro:' + nazwa + ']', e);
+    }
+  }
+
+  /* ---------- sprite poświaty: jeden raz, potem tylko drawImage ----------
+     Radialny gradient liczony per drobinka per klatka potrafi zjeść klatkę
+     na telefonie. Rysujemy go RAZ do małego płótna i skalujemy. */
+  function sprite(kolor) {
+    var s = document.createElement('canvas'), r = 32;
+    s.width = s.height = r * 2;
+    var c = s.getContext('2d');
+    var g = c.createRadialGradient(r, r, 0, r, r, r);
+    g.addColorStop(0, 'rgba(255,255,255,.95)');
+    g.addColorStop(.22, kolor.replace('ALFA', '.85'));
+    g.addColorStop(.55, kolor.replace('ALFA', '.28'));
+    g.addColorStop(1, kolor.replace('ALFA', '0'));
+    c.fillStyle = g;
+    c.beginPath(); c.arc(r, r, r, 0, Math.PI * 2); c.fill();
+    return s;
+  }
+
+  /* ============================================================
+     1) ISKRY W NAGŁÓWKU
+     ============================================================ */
+  blok('iskry', function () {
+    if (reduce) return;
+    var ramka = document.querySelector('.hero-fach') || document.querySelector('.pagehead');
+    if (!ramka || !ramka.getContext && !document.createElement('canvas').getContext) return;
+
+    var plotno = document.createElement('canvas');
+    plotno.className = 'iskry-plotno';
+    plotno.setAttribute('aria-hidden', 'true');
+    ramka.appendChild(plotno);
+    var ctx = plotno.getContext('2d');
+    if (!ctx) { plotno.remove(); return; }
+
+    var glowA = sprite('rgba(123,227,255,ALFA)');   /* cyjan z ogona pioruna */
+    var glowB = sprite('rgba(90,170,255,ALFA)');    /* niebieski ze znaku */
+
+    var W = 0, H = 0, dpr = 1, drobinki = [], luk = null, doLuku = 90;
+
+    function wymiar() {
+      var r = ramka.getBoundingClientRect();
+      W = Math.max(1, Math.round(r.width));
+      H = Math.max(1, Math.round(r.height));
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      plotno.width = Math.round(W * dpr);
+      plotno.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var ile = Math.round(Math.min(46, Math.max(18, W / 34)));
+      drobinki.length = 0;
+      for (var i = 0; i < ile; i++) drobinki.push(nowa(true));
+    }
+
+    function nowa(gdziekolwiek) {
+      return {
+        x: Math.random() * W,
+        y: gdziekolwiek ? Math.random() * H : H + 12,
+        vx: (Math.random() - .35) * .16,
+        vy: -(.12 + Math.random() * .34),
+        r: .6 + Math.random() * 1.9,
+        faza: Math.random() * Math.PI * 2,
+        tempo: .006 + Math.random() * .014,
+        zycie: 0,
+        dlugosc: 380 + Math.random() * 620,
+        cyjan: Math.random() < .62
+      };
+    }
+
+    /* łuk elektryczny — łamana z losowym odchyleniem od prostej + jedna odnoga */
+    function nowyLuk() {
+      var x1 = W * (.5 + Math.random() * .48), y1 = H * (.08 + Math.random() * .3);
+      var x2 = x1 + (Math.random() - .5) * W * .3, y2 = y1 + H * (.16 + Math.random() * .34);
+      var kroki = 9, pkt = [], i;
+      for (i = 0; i <= kroki; i++) {
+        var t = i / kroki, roz = (i === 0 || i === kroki) ? 0 : (Math.random() - .5) * 34;
+        pkt.push([x1 + (x2 - x1) * t + roz, y1 + (y2 - y1) * t + (Math.random() - .5) * 12]);
+      }
+      var start = 3 + Math.floor(Math.random() * 3), odnoga = [pkt[start]];
+      for (i = 1; i <= 3; i++) {
+        odnoga.push([odnoga[i - 1][0] + (Math.random() - .3) * 34, odnoga[i - 1][1] + Math.random() * 26]);
+      }
+      return { pkt: pkt, odnoga: odnoga, t: 0, dl: 16 + Math.floor(Math.random() * 10), koniec: pkt[kroki] };
+    }
+
+    function rysujLamana(p, szer, alfa) {
+      ctx.beginPath();
+      ctx.moveTo(p[0][0], p[0][1]);
+      for (var i = 1; i < p.length; i++) ctx.lineTo(p[i][0], p[i][1]);
+      ctx.lineWidth = szer;
+      ctx.strokeStyle = 'rgba(190,245,255,' + alfa + ')';
+      ctx.stroke();
+    }
+
+    var gra = false, widoczny = true, id = 0;
+
+    function klatka() {
+      if (!gra) return;
+      id = requestAnimationFrame(klatka);
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'lighter';
+
+      for (var i = 0; i < drobinki.length; i++) {
+        var d = drobinki[i];
+        d.zycie++;
+        d.faza += d.tempo;
+        d.x += d.vx + Math.sin(d.faza) * .22;
+        d.y += d.vy;
+        var p = d.zycie / d.dlugosc;
+        if (p >= 1 || d.y < -20) { drobinki[i] = nowa(false); continue; }
+        /* wchodzi i gaśnie miękko — drobinka nigdy nie „znika" skokiem */
+        var a = p < .16 ? p / .16 : (p > .74 ? (1 - p) / .26 : 1);
+        var rozmiar = d.r * 9;
+        ctx.globalAlpha = a * .55;
+        ctx.drawImage(d.cyjan ? glowA : glowB, d.x - rozmiar, d.y - rozmiar, rozmiar * 2, rozmiar * 2);
+      }
+      ctx.globalAlpha = 1;
+
+      /* łuk: krótkie, migoczące wyładowanie co kilka sekund */
+      if (!luk && --doLuku <= 0) { luk = nowyLuk(); doLuku = 150 + Math.floor(Math.random() * 260); }
+      if (luk) {
+        luk.t++;
+        var mig = (luk.t % 3 === 1) ? .35 : 1;
+        var zanik = 1 - luk.t / luk.dl;
+        if (zanik <= 0) {
+          /* na końcu wyładowania sypią się iskry */
+          for (var k = 0; k < 5; k++) {
+            var n = nowa(false);
+            n.x = luk.koniec[0]; n.y = luk.koniec[1];
+            n.vx = (Math.random() - .5) * 1.5; n.vy = -(.2 + Math.random() * .9);
+            n.dlugosc = 90 + Math.random() * 120; n.cyjan = true; n.r = .7 + Math.random();
+            drobinki.push(n);
+          }
+          while (drobinki.length > 70) drobinki.shift();
+          luk = null;
+        } else {
+          ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          ctx.shadowColor = 'rgba(120,220,255,.95)'; ctx.shadowBlur = 18;
+          rysujLamana(luk.pkt, 2.6, .16 * zanik * mig);
+          rysujLamana(luk.pkt, 1.1, .62 * zanik * mig);
+          rysujLamana(luk.odnoga, .9, .34 * zanik * mig);
+          ctx.shadowBlur = 0;
+        }
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    function przelacz() {
+      var chce = widoczny && !document.hidden;
+      if (chce && !gra) { gra = true; id = requestAnimationFrame(klatka); }
+      else if (!chce && gra) { gra = false; cancelAnimationFrame(id); }
+    }
+
+    wymiar();
+    var czekaj;
+    window.addEventListener('resize', function () {
+      clearTimeout(czekaj); czekaj = setTimeout(wymiar, 220);
+    }, { passive: true });
+    document.addEventListener('visibilitychange', przelacz);
+
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(function (w) {
+        widoczny = w[0].isIntersecting; przelacz();
+      }, { rootMargin: '80px' }).observe(ramka);
+    }
+    przelacz();
+  });
+
+  /* ============================================================
+     2) TOR PRĄDU NA STYKU SEKCJI
+     Szyna z biegnącym pakietem światła. Wstawiamy skryptem, żeby nie
+     dokładać znaczników do pięciu podstron — i żeby bez JS strona
+     wyglądała dokładnie jak przedtem.
+     ============================================================ */
+  blok('tor', function () {
+    if (reduce) return;
+    var sekcje = document.querySelectorAll('main > section');
+    var tory = [], i;
+
+    function dodaj(rodzic, klasa) {
+      var t = document.createElement('span');
+      t.className = 'prad-tor' + (klasa ? ' ' + klasa : '');
+      t.setAttribute('aria-hidden', 'true');
+      t.innerHTML = '<i></i>';
+      rodzic.appendChild(t);
+      return t;
+    }
+
+    for (i = 1; i < sekcje.length; i++) {
+      var s = sekcje[i];
+      /* pomijamy pasma, które mają własną, mocną krawędź — dwie kreski
+         jedna na drugiej wyglądają jak błąd, nie jak ozdoba */
+      if (s.classList.contains('stopklatka')) continue;
+      var t = dodaj(s);
+      t.style.animationDelay = '0s';
+      t.firstChild.style.animationDelay = (i % 4) * 1.15 + 's';
+      tory.push(t);
+    }
+    var nav = document.querySelector('.nav');
+    if (nav) {
+      var tn = dodaj(nav, 'tor-nav');
+      tn.style.top = 'auto'; tn.style.bottom = '0';
+      tn.classList.add('gra');
+    }
+    if (!tory.length || !window.IntersectionObserver) {
+      for (i = 0; i < tory.length; i++) tory[i].classList.add('gra');
+      return;
+    }
+    var obs = new IntersectionObserver(function (wpisy) {
+      for (var j = 0; j < wpisy.length; j++) {
+        wpisy[j].target.classList.toggle('gra', wpisy[j].isIntersecting);
+      }
+    }, { rootMargin: '120px' });
+    for (i = 0; i < tory.length; i++) obs.observe(tory[i]);
+  });
+
+  /* Warstwa tła (łuny + siatka schematu) NIE jest już tu wstawiana — siedzi
+     w `body::before` w styles.css. Powód w komentarzu przy tej regule: pełno-
+     ekranowy <div class="fixed"> mylił bramkę kolizji z nagłówkami. */
+
+  /* ============================================================
+     3) SZYNA POSTĘPU — ile prądu popłynęło stroną
+     ============================================================ */
+  blok('szyna', function () {
+    var szyna = document.createElement('div');
+    szyna.className = 'szyna-postep';
+    szyna.setAttribute('aria-hidden', 'true');
+    szyna.innerHTML = '<i></i>';
+    document.body.appendChild(szyna);
+    var czeka = false;
+    function licz() {
+      if (czeka) return; czeka = true;
+      requestAnimationFrame(function () {
+        var doc = document.documentElement;
+        var max = (doc.scrollHeight - window.innerHeight) || 1;
+        var v = Math.min(1, Math.max(0, (window.scrollY || doc.scrollTop || 0) / max));
+        szyna.style.setProperty('--napiecie', v.toFixed(4));
+        czeka = false;
+      });
+    }
+    window.addEventListener('scroll', licz, { passive: true });
+    window.addEventListener('resize', licz, { passive: true });
+    licz();
+  });
+})();

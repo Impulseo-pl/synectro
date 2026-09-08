@@ -1847,3 +1847,322 @@ footer{view-transition-name:mt-foot}
 
 /* === szary tekst dociągnięty do czytelności (WCAG 4.5 na wszystkich tłach) === */
 :root{--muted:#606872;}
+
+
+/* ============================================================
+   SKÓRKA „ELEKTRO" — cała strona w stylu LOGO Synectro
+   (08.09.2026, prośba Szymona: „zrób stronę w stylu logo, kilka fajnych
+   przejść i bajerów z iskrami, przepływem prądu")
+
+   Logo: granatowa płyta + znak domu/kamery/pioruna w gradiencie
+   niebieski → cyjan + biały napis. Strona idzie DOKŁADNIE tym tropem:
+   ciemne granatowe tło, prąd jako jedyny ozdobnik, cyjan tylko tam,
+   gdzie ma świecić.
+
+   Doklejane na SAM KONIEC pliku → wygrywa kaskadę, nie rusza reguł
+   w miejscu (ta sama zasada co warstwa hero-fit).
+
+   ⛔ CZEGO TU ŚWIADOMIE NIE MA:
+   • ramek na kaflach ze zdjęciem przy najechaniu — obowiązuje standard
+     „kadr, nie klocek" (zoom 1.05 / 1.4 s). Kafle dostają tylko poświatę.
+   • zmiany LOGIKI najechania (jeden standard: wypełnienie --accent-d
+     + biały napis). Dokładamy do niego wyłącznie poświatę.
+   • ruchu, który nie da się wyłączyć — każdy efekt siedzi w
+     @media (prefers-reduced-motion:no-preference).
+   ============================================================ */
+
+/* ---------- 1) PALETA Z LOGO ---------- */
+:root{
+  --paper:#070C16;            /* granat z płyty logo */
+  --paper-2:#0C1424;
+  --paper-3:#121D33;
+  --ink:#EDF4FF;
+  --ink-soft:#C8D9F1;
+  --muted:#9FB5D2;            /* 8.9:1 na tle strony — policzone, nie na oko */
+  --line:rgba(110,175,255,.18);
+  --accent:#3FB2FF;           /* niebieski ze znaku */
+  --accent-d:#0A57C8;         /* ciemny wariant — wypełnienie przy najechaniu, biel 6.6:1 */
+  --accent-soft:rgba(63,178,255,.14);
+  --accent-text:#78CBFF;      /* akcent jako LITERA na ciemnym tle */
+  --dark:#04080F;             /* pasma ciemniejsze od tła: stopka, CTA, awaria */
+  --iskra:#7BE3FF;            /* cyjan z ogona pioruna */
+  --iskra-hot:#EAFBFF;
+
+  /* cienie: na ciemnym tle „poduszka" nie istnieje — pracuje POŚWIATA */
+  --sh-sm:0 1px 2px rgba(0,0,0,.5),0 2px 10px rgba(0,0,0,.4);
+  --sh-md:0 4px 14px rgba(0,0,0,.5),0 18px 40px -14px rgba(0,0,0,.75);
+  --sh-lg:0 10px 30px rgba(0,0,0,.55),0 34px 70px -24px rgba(0,0,0,.85);
+}
+
+html{background:var(--paper)}
+/* ⚠️ <body> MUSI mieć PEŁNE background-color i ZERO background-image.
+   Powód policzony bramką 08.09.2026, dwa razy pod rząd:
+   • body przezroczyste → pomiar kontrastu cofa się do domyślnej BIELI i zgłasza
+     jasny tekst jako nieczytelny (1.11:1 tam, gdzie realnie jest 16:1);
+   • body z gradientem → ten sam pomiar uznaje KAŻDY napis na stronie za „napis
+     na zdjęciu" i liczy go z pikseli zamiast z kodu.
+   Dlatego ozdoba (łuny + siatka jak na schemacie elektrycznym) siedzi w OSOBNEJ,
+   przyklejonej warstwie `body::before`, a treść jedzie nad nią.
+   ⚠️ To MUSI być pseudoelement, nie zwykły <div>. Bramka wyglądu szuka kolizji
+   elementów `position:fixed` z nagłówkami pierwszego ekranu (lekcja as-tchorzewski
+   07.09) i pełnoekranowa warstwa-div zgłaszała KAŻDY nagłówek na pięciu podstronach
+   jako „zasłonięty", choć ma z-index 0 i pointer-events:none. Pseudoelement nie
+   wchodzi do `querySelectorAll('body *')`, więc pomiar widzi to, co widzi oko. */
+body{color:var(--ink);background:var(--paper)}
+body::before{
+  content:"";
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    radial-gradient(58% 46% at 14% 0%,rgba(26,102,214,.26),transparent 72%),
+    radial-gradient(46% 38% at 96% 8%,rgba(48,196,255,.12),transparent 72%),
+    linear-gradient(rgba(96,172,255,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(96,172,255,.04) 1px,transparent 1px);
+  background-size:100% 100%,100% 100%,68px 68px,68px 68px;
+  background-repeat:no-repeat,no-repeat,repeat,repeat;
+}
+/* Treść ponad warstwą ozdobną. Sekcje z własnym tłem (ciemne pasma, stopka)
+   zasłaniają ją u siebie — i tak ma być. */
+main,footer{position:relative;z-index:1}
+
+/* ---------- 2) TOR PRĄDU — jeden komponent, wiele miejsc ----------
+   Cienka szyna + biegnący nią pakiet światła. Wstawia go skrypt
+   (`prad-tor`) na styku sekcji i pod pasek nawigacji. Animacja rusza
+   dopiero, gdy szyna wjedzie w ekran (klasa `gra`) — nic nie mieli w tle. */
+.prad-tor{
+  position:absolute;left:0;right:0;top:0;height:1px;z-index:3;
+  overflow:hidden;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(96,172,255,.34) 16%,rgba(96,172,255,.34) 84%,transparent);
+}
+.prad-tor > i{
+  position:absolute;top:-1px;left:0;width:170px;height:3px;border-radius:3px;opacity:0;
+  background:linear-gradient(90deg,transparent,var(--iskra) 38%,var(--iskra-hot) 52%,var(--iskra) 66%,transparent);
+  box-shadow:0 0 10px rgba(123,227,255,.9),0 0 28px rgba(63,178,255,.55);
+  translate:-200px 0;
+}
+@media (prefers-reduced-motion:no-preference){
+  .prad-tor.gra > i{animation:prad-bieg 5.2s cubic-bezier(.6,0,.4,1) infinite}
+}
+@keyframes prad-bieg{
+  0%   {opacity:0;translate:-200px 0}
+  8%   {opacity:1}
+  86%  {opacity:1}
+  100% {opacity:0;translate:calc(100vw + 200px) 0}
+}
+main > section{position:relative}
+
+/* ---------- 3) PASEK POSTĘPU = NAPIĘCIE NA SZYNIE ----------
+   Im niżej na stronie, tym dalej „popłynął prąd". Skrypt ustawia --napiecie. */
+.szyna-postep{
+  position:fixed;left:0;right:0;top:0;height:2px;z-index:120;pointer-events:none;
+  background:rgba(96,172,255,.10);
+}
+.szyna-postep > i{
+  display:block;height:100%;width:100%;transform-origin:0 50%;
+  transform:scaleX(var(--napiecie,0));
+  background:linear-gradient(90deg,var(--accent-d),var(--accent) 55%,var(--iskra));
+  box-shadow:0 0 12px rgba(63,178,255,.75);
+}
+
+/* ---------- 4) NAWIGACJA ---------- */
+.nav.nav-solid{
+  background:color-mix(in srgb,var(--paper) 88%,transparent);
+  backdrop-filter:saturate(150%) blur(12px);
+  border-bottom-color:rgba(96,172,255,.24);
+  box-shadow:0 10px 30px -22px rgba(0,0,0,.9);
+}
+.nav::after{background:linear-gradient(180deg,rgba(4,8,15,.7) 0%,rgba(4,8,15,0) 100%)}
+.nav .brand .name{color:var(--ink)}
+.nav.nav-solid .brand .name{color:var(--ink)}
+.nav.nav-solid .brand .sub{color:var(--accent-text)}
+.nav.nav-solid .nav-links a:not(.btn-accent){color:var(--ink-soft)}
+.nav.nav-solid .nav-links a:not(.btn-accent)::after{background:var(--iskra);box-shadow:0 0 8px rgba(123,227,255,.8)}
+.nav .nav-links a:not(.btn-accent)::after{box-shadow:0 0 8px rgba(123,227,255,.7)}
+.nav .nav-links{background:transparent}
+@media(max-width:680px){
+  .nav .nav-links{background:color-mix(in srgb,var(--paper) 96%,transparent);backdrop-filter:blur(14px)}
+}
+/* Znak firmowy w pasku ma świecić jak na granatowej płycie z logo. */
+.brand-logo{filter:drop-shadow(0 0 16px rgba(63,178,255,.32))}
+@media (prefers-reduced-motion:no-preference){
+  .brand-logo{animation:znak-oddech 6.5s ease-in-out infinite}
+}
+@keyframes znak-oddech{
+  0%,100%{filter:drop-shadow(0 0 12px rgba(63,178,255,.22))}
+  50%    {filter:drop-shadow(0 0 22px rgba(96,205,255,.46))}
+}
+
+/* ---------- 5) PRZYCISKI = STYK POD NAPIĘCIEM ----------
+   Gradient niebieski→cyjan wprost ze znaku, ciemny granatowy napis
+   (5.2:1 na najciemniejszym punkcie gradientu — policzone) i poświata
+   zamiast cienia. Najechanie zostaje w standardzie domu: wypełnienie
+   --accent-d + biel; dokładamy tylko halo. */
+.btn-accent,.btn-light,.sticky-call .sc-call{
+  background:linear-gradient(135deg,#1E86F0 0%,#46C8FF 58%,#7BE3FF 100%);
+  color:#04101F;border-color:transparent;
+  box-shadow:0 0 0 1px rgba(140,225,255,.34),0 10px 26px -12px rgba(50,170,255,.9);
+}
+.nav .nav-links a.btn-accent{
+  background:linear-gradient(135deg,#1E86F0 0%,#46C8FF 58%,#7BE3FF 100%);
+  border-color:transparent;color:#04101F}
+.btn-ghost,.hf-ghost,.cta .btn-ghost-cta{border-color:rgba(140,200,255,.42)}
+.btn-ghost:hover{border-color:var(--iskra);color:var(--iskra)}
+@media(hover:hover){
+  .btn:hover,.btn:focus-visible,
+  .nav .nav-links a.btn-accent:hover,.nav .nav-links a.btn-accent:focus-visible{
+    box-shadow:0 0 0 3px var(--accent-soft),0 0 24px rgba(63,178,255,.45),0 10px 26px -14px #000}
+  .nav .nav-links a.btn-accent:hover,.nav .nav-links a.btn-accent:focus-visible{
+    background:var(--accent-d);border-color:var(--accent-d);color:#fff}
+  .nav:not(.nav-solid) .nav-links a.btn-accent{background:transparent;border-color:rgba(190,225,255,.55);color:#EDF4FF;box-shadow:none}
+  /* ⚠️ Halo MUSI być powtórzone tutaj. Reguła spoczynku wyżej ma tę samą
+     specyficzność (0,4,1) co `.nav .nav-links a.btn-accent:hover`, a stoi PO niej —
+     więc gasiła cień także w trakcie najechania i CTA w pasku jako jedyny klocek
+     na stronie reagował inaczej niż reszta (pomiar hover_diag: 2 różne reakcje
+     na 5 podstronach). Selektor 0,5,1 przebija ją i wyrównuje standard. */
+  .nav:not(.nav-solid) .nav-links a.btn-accent:hover,
+  .nav:not(.nav-solid) .nav-links a.btn-accent:focus-visible{
+    background:var(--accent-d);border-color:var(--accent-d);color:#fff;
+    box-shadow:0 0 0 3px var(--accent-soft),0 0 24px rgba(63,178,255,.45),0 10px 26px -14px #000}
+}
+/* Przycisk awaryjny pulsuje samą poświatą — nic nie podskakuje, więc standard
+   „klocek stoi w miejscu" zostaje nienaruszony. */
+@media (prefers-reduced-motion:no-preference){
+  .awaria .btn-accent{animation:styk-puls 3.6s ease-in-out infinite}
+}
+@keyframes styk-puls{
+  0%,100%{box-shadow:0 0 0 1px rgba(140,225,255,.34),0 10px 26px -12px rgba(50,170,255,.9)}
+  50%    {box-shadow:0 0 0 1px rgba(170,238,255,.6),0 0 30px rgba(70,200,255,.55),0 10px 26px -12px rgba(50,170,255,.9)}
+}
+
+/* ---------- 6) KRESKA AKCENTU = KAWAŁEK PRZEWODU ---------- */
+.eyebrow::before,
+.svc-row li::before,
+.obj-tile::before{
+  background:linear-gradient(90deg,rgba(63,178,255,.15),var(--accent) 55%,var(--iskra));
+  box-shadow:0 0 10px rgba(123,227,255,.55);
+}
+.fp-row li:not(:last-child)::after,
+.proces-line li::after{box-shadow:0 0 10px rgba(123,227,255,.75)}
+.strip .item{border-left-color:var(--accent);box-shadow:-1px 0 12px -4px rgba(63,178,255,.7)}
+
+/* ---------- 7) KARTY NA CIEMNYM ----------
+   Tło strony jest granatowe, więc karta w kolorze --paper zniknęłaby.
+   Każda dostaje własną, minimalnie jaśniejszą płytę + hairline. */
+/* ⚠️ Płyta karty JEDNOLITYM kolorem, nie gradientem. Gradient na tle karty to
+   dla bramki „napis na zdjęciu" (background-image ≠ none), więc kontrast liczy
+   z pikseli zamiast z kodu i sypie fałszywymi alarmami. Kolor pełny = pomiar
+   deterministyczny i o jeden wektor błędu mniej. */
+.svc,.trust-card,.form,.obj-tile,.op-card,.faq-item,.card,.gateway-txt,.op-google,.to-top,
+.proces-os .proces-line > li .pno{
+  background:#111D33;
+  border:1px solid var(--line);
+}
+.trust-card{border-top:3px solid var(--accent);box-shadow:0 -1px 18px -6px rgba(63,178,255,.55),var(--sh-sm)}
+.trust-card .big,.tb-num,.op-autor,.fu-name,.ot-name{color:var(--ink)}
+.tb-google{background:var(--paper-2);color:var(--ink)}
+.tb-seal{color:var(--ink);border-color:var(--accent)}
+.obszar-list li{color:var(--ink-soft)}
+.obszar-list li.is-home{
+  background:#4CC9FF;border-color:transparent;color:#04101F;
+  box-shadow:0 0 22px -6px rgba(63,178,255,.8)}
+.faq-item summary{color:var(--ink)}
+.faq-item[open]{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+
+/* ---------- 8) FORMULARZ ---------- */
+.form input,.form textarea{background:rgba(6,11,20,.75);color:var(--ink);border-color:var(--line)}
+.form input::placeholder,.form textarea::placeholder{color:rgba(159,181,210,.6)}
+.form input:focus,.form textarea:focus{
+  background:rgba(10,18,32,.9);border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft),0 0 18px -4px rgba(63,178,255,.7)}
+
+/* ---------- 9) ZDJĘCIA NA CIEMNYM TLE ----------
+   Sam hairline i poświata przy najechaniu. ⛔ Żadnych ramek wjeżdżających
+   ani podskoków — kafel ze zdjęciem zostaje przy standardzie „powolny zoom". */
+.tile,.gateway,.m-tile,.split-art,.svc-row-art{
+  border:1px solid var(--line);border-radius:var(--r-md);
+  box-shadow:0 0 0 1px rgba(0,0,0,.4),var(--sh-sm)}
+@media(hover:hover){
+  .tile:hover,.gateway:hover{box-shadow:0 0 0 1px rgba(123,227,255,.35),0 0 34px -10px rgba(63,178,255,.75),var(--sh-md)}
+}
+/* Mapy Google świecą bielą jak latarka w ciemnym pokoju — odwracamy je
+   na wariant nocny. Wartości dobrane tak, żeby drogi zostały czytelne. */
+.obszar-mapa iframe,.map{
+  filter:invert(.92) hue-rotate(185deg) saturate(.72) brightness(1.06) contrast(.92);
+  border:1px solid var(--line)}
+
+/* Pas „stopklatki" — kadr wchodzi w klimat granatu zamiast wybijać się bielą. */
+.stopklatka{background:var(--dark);border-block:1px solid var(--line)}
+.stopklatka .stk-bg{filter:saturate(.72) contrast(1.06) brightness(.82)}
+.stopklatka::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(100deg,rgba(7,12,22,.72),rgba(7,12,22,.15) 55%,rgba(10,60,120,.32));
+  mix-blend-mode:multiply}
+
+/* ---------- 10) OŚ PROCESU = SZYNA, PO KTÓREJ PŁYNIE PRĄD ----------
+   Pionowa oś „jak pracujemy" dostaje świecące wypełnienie (wysokość
+   ustawia istniejący skrypt przez --os-fill), a aktywny krok — węzeł
+   pod napięciem. To dosłownie ta metafora, o którą prosił Szymon. */
+.proces-os .proces-line:before{background:rgba(110,175,255,.16);width:2px}
+.proces-os .proces-line:after{
+  width:2px;opacity:1;
+  background:linear-gradient(180deg,var(--accent-d),var(--accent) 45%,var(--iskra));
+  box-shadow:0 0 14px rgba(63,178,255,.75),0 0 30px rgba(63,178,255,.35)}
+.proces-os .pc-cur{color:var(--iskra);text-shadow:0 0 18px rgba(123,227,255,.5)}
+.proces-os .proces-line > li .pno{color:var(--ink-soft)}
+.proces-os .proc-bar{background:rgba(110,175,255,.16)}
+.proces-os .proc-bar > i{
+  background:linear-gradient(90deg,var(--accent-d),var(--iskra));
+  box-shadow:0 0 12px rgba(63,178,255,.8);
+  /* Wypełnienie startuje z `width:0`, a odkąd świeci, bramka wyglądu widzi ozdobę
+     o rozmiarze 0×2 („jest w kodzie, nie widać jej"). Trzy piksele zapłonu: szyna
+     jest pod napięciem od pierwszej chwili, a pomiar nie zgłasza pustego elementu. */
+  min-width:3px}
+.os-on .proces-os .proces-line > li.os-live .pno{
+  background:#4CC9FF;border-color:transparent;color:#04101F;
+  box-shadow:0 0 0 4px rgba(63,178,255,.12),0 0 26px -4px rgba(90,205,255,.85)}
+.os-on .proces-os .proces-line > li.os-done .pno{border-color:rgba(63,178,255,.55);color:var(--accent-text)}
+@media (prefers-reduced-motion:no-preference){
+  .os-on .proces-os .proces-line > li.os-live .pno{animation:wezel-puls 2.6s ease-in-out infinite}
+}
+@keyframes wezel-puls{
+  0%,100%{box-shadow:0 0 0 4px rgba(63,178,255,.10),0 0 20px -6px rgba(90,205,255,.7)}
+  50%    {box-shadow:0 0 0 7px rgba(63,178,255,.06),0 0 34px -2px rgba(120,225,255,.95)}
+}
+
+/* ---------- 11) SEKCJE CIEMNIEJSZE (CTA / awaria / stopka) ---------- */
+.cta,.awaria,footer,.strip{background:var(--dark)}
+.cta::before{background:radial-gradient(circle,rgba(63,178,255,.22),transparent 70%)}
+.cta,.awaria,footer{border-top:1px solid rgba(96,172,255,.16)}
+.foot-soc .soc:hover{border-color:var(--iskra);background:rgba(63,178,255,.12);box-shadow:0 0 18px -6px rgba(123,227,255,.9)}
+.foot-brand .name{text-shadow:0 0 24px rgba(63,178,255,.35)}
+
+/* ---------- 12) HERO — kadr wpięty w granat ----------
+   Zasłona hero dostaje granatowy odcień zamiast neutralnej czerni, żeby
+   zdjęcie siedziało w tej samej temperaturze co reszta strony. Jasność
+   zasłony BEZ ZMIAN (lekcja 08.08: nie przykrywamy kadru kocem). */
+.hero-fach::after{
+  background:linear-gradient(102deg,rgba(6,11,21,.88) 0%,rgba(6,11,21,.8) 30%,rgba(7,16,32,.54) 55%,rgba(8,22,44,.22) 78%,rgba(10,30,60,.08) 100%)}
+.pagehead::after{background:linear-gradient(180deg,rgba(6,11,21,.45),rgba(6,11,21,.86))}
+.hf-phone-num .ico-tel{color:var(--iskra);filter:drop-shadow(0 0 8px rgba(123,227,255,.8))}
+.hf-kicker::before{
+  background:linear-gradient(90deg,rgba(123,227,255,.2),var(--iskra));
+  box-shadow:0 0 12px rgba(123,227,255,.85)}
+
+/* Warstwa iskier w nagłówku (rysuje ją skrypt). Siedzi NAD zasłoną,
+   ale POD tekstem — litery zostają w pełnym kontraście. */
+.iskry-plotno{
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+  width:100%;height:100%;display:block;opacity:.92}
+
+/* ---------- 13) DROBIAZGI DOSTĘPNOŚCI NA CIEMNYM ---------- */
+::selection{background:rgba(63,178,255,.35);color:#fff}
+.foot-col a:hover{color:var(--iskra)}
+.to-top:hover{border-color:var(--iskra);box-shadow:0 0 20px -6px rgba(123,227,255,.9)}
+.op-star,.ico-star{color:#FFC53D}
+.info-row .ic{background:var(--accent-soft);color:var(--iskra);box-shadow:0 0 16px -6px rgba(123,227,255,.9)}
+.gallery-masonry .m-tile{border-color:var(--line)}
+
+/* ---------- 14) WYŁĄCZNIK GŁÓWNY ---------- */
+@media (prefers-reduced-motion:reduce){
+  .prad-tor > i{display:none}
+  .iskry-plotno{display:none}
+}
